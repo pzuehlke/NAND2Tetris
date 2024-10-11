@@ -1,0 +1,144 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Math.jack
+/**
+ *  A library of commonly used mathematical functions.
+ *  All functions runs in O(n), where n is the number of bits used
+ *  for representing a two's complement integer value (16 in the Hack computer). 
+ *  Note: Jack compilers implement multiplication and division
+ *  using calls to OS functions in this class.
+ */
+class Math {
+    static int n;             // Number of bits used for representing a two's complement integer
+    static Array powersOfTwo; // Stores 2^0, 2^1, 2^2,..., 2^(n-1)
+
+    // Initializes the Math library.
+    function void init() {
+        let n = 16;
+        let powersOfTwo = Array.new(n);
+        let i = 1;
+        let powersOfTwo[0] = 1;
+        while (i < 16) {
+            let powersOfTwo[i] = powersOfTwo[i-1] + powersOfTwo[i-1];
+            let i = i + 1;
+        }
+        return;
+    }
+
+    /** Returns the product of x and y. 
+     *  When a Jack compiler detects the multiplication operator '*'
+     *  in an expression, it handles it by invoking this method. 
+     *  Thus, in Jack, x * y and Math.multiply(x,y) return the same value. */
+    function int multiply(int x, int y) {
+        var int sum, shiftedx, i;
+
+        let sum = 0;
+        let shiftedx = x;
+        let i = 0;
+
+        while (i < n) {
+            if (Math.bit(y, i)) {
+                let sum = sum + shiftedx;
+
+            }
+            let shiftedx = shiftedx + shiftedx;
+            let i = i + 1;
+        }
+
+        return sum;
+    }
+
+    /** Returns the integer part of x / y.
+     *  When a Jack compiler detects the division operator '/'
+     *  an an expression, it handles it by invoking this method.
+     *  Thus, x/y and Math.divide(x,y) return the same value. */
+    function int divide(int x, int y) {
+        var int q, result;
+        var boolean oppositeSigns;
+
+        let oppositeSigns = ((x < 0) != (y < 0));  // true iff x, y have opposite signs
+        let x = Math.abs(x);
+        let y = Math.abs(y);
+
+        if (y = 0) {  // division by zero!
+            do Output.printString("Error: Division by zero");
+            do Sys.error(0);  // Division by zero
+        }
+
+        if (x < y) {
+            return 0;
+        }
+
+        let q = Math.divide(x, y + y);
+
+        if (x - (Math.multiply(q, y) + Math.multiply(q, y)) < y) {
+            let result = q + q;
+        } else {
+            let result = q + q + 1;
+        }
+        
+        if (oppositeSigns) {
+            return -result;
+        } else {
+            return result;
+        }
+    }
+
+    /** Returns the integer part of the square root of x. */
+    function int sqrt(int x) {
+        var int y, j, z, zSquared;
+
+        let y = 0;
+        let j = Math.divide(n, 2) - 1;
+
+        while (~(j < 0)) {
+            let z = y + powersOfTwo[j];
+            let zSquared = Math.multiply(z, z);
+            if (~(zSquared > x) & (zSquared > 0)) {  // second condition checks for overflow
+                let y = z;
+            }
+            let j = j - 1;
+        }
+
+        return y;
+    }
+
+    /** Returns the greater value. */
+    function int max(int a, int b) {
+        if (a < b) {
+            return b;
+        }
+        return a;
+    }
+
+    /** Returns the smaller value. */
+    function int min(int a, int b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+
+    /** Returns the absolute value of x. */
+    function int abs(int x) {
+        if (x < 0) {
+            return -x;
+        }
+        return x;
+    }
+
+    /** Returns the remainder of the division of x by y (this is used in the String module) */
+    function int mod(int x, int y){
+        if (y = 0) {  // division by zero!
+            do Output.printString("Error: Division by zero");
+            do Sys.error(0);  // Division by zero
+        }
+        return x - (Math.multiply(Math.divide(x, y),  y));
+    }
+
+    /** Returns true if i-th bit of y is 1, and false otherwise */
+    function boolean bit(int y, int i) {
+        return ~((y & powersOfTwo[i]) = 0);
+    }
+}
