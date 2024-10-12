@@ -11,7 +11,7 @@
  */
 class String {
     field Array str;
-    fild int length;
+    field int length;
     field int capacity;
 
     /** constructs a new empty string with a maximum length of maxLength
@@ -60,7 +60,7 @@ class String {
     method String appendChar(char c) {
         if (~(length < capacity)) {
             do Output.printString("String full, cannot append another character!");
-            return;
+            return this;
         }
         let str[length] = c;
         let length = length + 1;
@@ -107,25 +107,25 @@ class String {
         }
         return val;
     }
-    }
+    
 
     /** Sets this string to hold a representation of the given value. */
     method void setInt(int val) {
-        int lastDigit, quotient;
-        char c;
+        var int lastDigit, quotient;
+        var char c;
 
         if (val < 0) {
-            do appendChar(45);  // minus sign (appendix 2)
+            do str.appendChar(45);  // minus sign (appendix 2)
             let val = -val;
         }
-        let quotient = Math.divide(val, 10);
-        let lastDigit = Math.mod(val, 10);
-        c = 48 + lastDigit;  // last digit as a char
+        let quotient = val / 10;
+        let lastDigit = val - (quotient * 10);
+        let c = lastDigit + 48;  // last digit as a char
 
         if (quotient > 0) {
-            do setInt(quotient);
+            do str.setInt(quotient);
         }
-        do appendChar(c);
+        do str.appendChar(c);
         return;
     }
 

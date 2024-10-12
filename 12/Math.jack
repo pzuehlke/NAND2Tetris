@@ -15,11 +15,13 @@ class Math {
 
     // Initializes the Math library.
     function void init() {
+        var int i;
+
         let n = 16;
         let powersOfTwo = Array.new(n);
-        let i = 1;
         let powersOfTwo[0] = 1;
-        while (i < 16) {
+        let i = 1;
+        while (i < n) {
             let powersOfTwo[i] = powersOfTwo[i-1] + powersOfTwo[i-1];
             let i = i + 1;
         }
@@ -57,7 +59,7 @@ class Math {
         var int q, result;
         var boolean oppositeSigns;
 
-        let oppositeSigns = ((x < 0) != (y < 0));  // true iff x, y have opposite signs
+        let oppositeSigns = (x * y < 0);  // true iff x, y have opposite signs
         let x = Math.abs(x);
         let y = Math.abs(y);
 
@@ -79,7 +81,7 @@ class Math {
         }
         
         if (oppositeSigns) {
-            return -result;
+            return (-result);
         } else {
             return result;
         }
@@ -128,7 +130,8 @@ class Math {
         return x;
     }
 
-    /** Returns the remainder of the division of x by y (this is used in the String module) */
+    /** Returns the remainder of the division of x by y (this is used in
+        the String and Screen modules) */
     function int mod(int x, int y){
         if (y = 0) {  // division by zero!
             do Output.printString("Error: Division by zero");
@@ -140,5 +143,13 @@ class Math {
     /** Returns true if i-th bit of y is 1, and false otherwise */
     function boolean bit(int y, int i) {
         return ~((y & powersOfTwo[i]) = 0);
+    }
+
+    /** Returns the i-th power of 2 */
+    function int powerOfTwo(int i) {
+        if ((i < 0) | (i > 15)) {
+            return 0;
+        }
+        return powersOfTwo[i];
     }
 }

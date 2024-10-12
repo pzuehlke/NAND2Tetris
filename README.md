@@ -16,9 +16,9 @@ This repository contains my solutions to the projects in the *Nand to Tetris* co
 ### Part II
 * [Project7](https://github.com/pzuehlke/NAND2Tetris/tree/main/07) and [Project 8](https://github.com/pzuehlke/NAND2Tetris/tree/main/08): Implement a VM translator that converts VM code based on a stack into Hack assembly code. This was done using Java. My original solution to Project 8 passed all tests except the one for "FibonacciElement" due to a bug which took me a lot of time to find. It is easy to make a mistake in the assembly code when manipulating pointers.
 * [Project 9](https://github.com/pzuehlke/NAND2Tetris/tree/main/09): ...
-* [Project 10](https://github.com/pzuehlke/NAND2Tetris/tree/main/10): Implement the front-end of a compiler that translates Jack code into VM code. More precisely, a syntax analyzer consisting of a tokenizer and a parser is built. For testing purposes it translates the source code into an XML document which models the tree-like structure of the code. This project requires a lot of grinding.
-* [Project 11](https://github.com/pzuehlke/NAND2Tetris/tree/main/11): Implement the back-end part of the compiler.
-* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): ...
+* [Project 10](https://github.com/pzuehlke/NAND2Tetris/tree/main/10): Implement a syntax analyzer for the Jack language, consisting of a tokenizer and a parser. For testing purposes it translates the source code into an XML document which model the tree-like structure of the code. This project requires a lot of grinding.
+* [Project 11](https://github.com/pzuehlke/NAND2Tetris/tree/main/11): Implement the code generation part of the compiler, which uses the services of the syntax analyzer to translate Jack code to VM code.
+* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): Implement the OS through eight modules written in Jack, including memory management, input and output handling, and system bootstrap.
 
 
 ## Official resources

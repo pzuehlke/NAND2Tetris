@@ -12,6 +12,7 @@ class Keyboard {
     /** Initializes the keyboard. */
     function void init() {
         let KBD = 24576;  // see p. 93
+        return;
     } 
 
     /**
@@ -44,9 +45,9 @@ class Keyboard {
     function char readChar() {
         var char c;
 
-        while (keyPressed() = 0) { }      // wait for a key to be pressed
-        c = keyPressed();
-        while (~(keyPressed() = c)) { }   // wait until no key is pressed anymore
+        while (Keyboard.keyPressed() = 0) { }      // wait for a key to be pressed
+        let c = Keyboard.keyPressed();
+        while (~(Keyboard.keyPressed() = c)) { }   // wait until no key is pressed anymore
 
         do Output.printChar(c);
         return c;
@@ -64,15 +65,15 @@ class Keyboard {
         do Output.printString(message);
 
         let c = Keyboard.readChar();
-        while (c != String.newLine()) {
+        while (~(c = String.newLine())) {
             if (c = String.backSpace()) {
-                line.eraseLastChar();
-                Output.backSpace();
+                do line.eraseLastChar();
+                do Output.backSpace();
             } else {
-                line.appendChar(c);
-                Output.printChar(c);
+                do line.appendChar(c);
+                do Output.printChar(c);
             }
-            c = Keyboard.readChar();
+            let c = Keyboard.readChar();
         }
         // Newline is automatically printed by readChar()
 
