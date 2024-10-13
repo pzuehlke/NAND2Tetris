@@ -28,7 +28,7 @@ class String {
 
     /** Disposes this string. */
     method void dispose() {
-        do str.dispose();
+        do Memory.deAlloc(this);
         return;
     }
 
@@ -58,13 +58,14 @@ class String {
 
     /** Appends c to this string's end and returns this string. */
     method String appendChar(char c) {
-        if (~(length < capacity)) {
+        if (length < capacity) {
+            let str[length] = c;
+            let length = length + 1;
+            return this;
+        } else {
             do Output.printString("String full, cannot append another character!");
             return this;
         }
-        let str[length] = c;
-        let length = length + 1;
-        return this;
     }
 
     /** Erases the last character from this string. */
@@ -115,17 +116,17 @@ class String {
         var char c;
 
         if (val < 0) {
-            do str.appendChar(45);  // minus sign (appendix 2)
+            do appendChar(45);  // minus sign (appendix 2)
             let val = -val;
         }
         let quotient = val / 10;
         let lastDigit = val - (quotient * 10);
-        let c = lastDigit + 48;  // last digit as a char
+        let c = String.digitToChar(lastDigit);
 
         if (quotient > 0) {
-            do str.setInt(quotient);
+            do setInt(quotient);
         }
-        do str.appendChar(c);
+        do appendChar(c);
         return;
     }
 
@@ -142,5 +143,14 @@ class String {
     /** Returns the double quote (") character. */
     function char doubleQuote() {
         return 34;  // as per appendix 5
+    }
+
+    function char digitToChar(int n) {
+        if (n < 0 | 9 < n) {
+            do Output.printString("Invalid digit");
+            do Sys.error(8);
+            return 0;
+        }
+        return 48 + n;
     }
 }

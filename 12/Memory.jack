@@ -2,6 +2,18 @@
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
 // File name: projects/12/Memory.jack
+
+// Note by the author (pzuehlke):  The specifications for this module in the
+// book and in the video lectures are inconsistent. The implementation here follows the
+// text and diagrams in the 2nd ed. of the book. More precisely:
+//  * The 0th word of any _free_ memory segment contains its _total_ size, not
+//    just the size of the part that contains the actual data (which is = total size - 2).
+//  * The 1st word of any _free_ memory segment contains the address of the next free segment.
+//  * The 0th word of an _allocated_ memory segment consists of its total size.
+//  * The remaining words of an _allocated_ memory segment hold its actual data.
+//  * The address of an _allocated_ memory segment `block` is the address of its
+//    1st word. Thus, its size can be accessed through `block[-1]`.
+
 /**
  * This library provides two services: direct access to the computer's main
  * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
@@ -13,15 +25,17 @@ class Memory {
     static int freeList;  // linked list of available, (i.e., free) memory segments
     static int heapBase;
     static int heapBottom;
-    static int RAMBottom;  // last addressable register (= KEYBOARD)
+    static int RAMBottom;  // last _addressable_ register (= KEYBOARD)
 
     /** Initializes the class. */
     function void init() {
-        let heapBase = 2048;
-        let heapBottom = 16383;   // register just before SCREEN, see p. 93
-        let RAMBottom = 24576;  // see p. 93
+        let heapBase = 2048;      // beginning of heap segment, see p. 253
+        let heapBottom = 16383;   // register just before SCREEN, see diagram on p. 93
+        let RAMBottom = 24576;    // address of KEYBOARD, see diagram on p. 93
+        let RAM = 0;
+        let heap = heapBase;
+        let freeList = heapBase;  // initially the free list consists of the entire heap
 
-        let freeList = heapBase;
         do Memory.poke(freeList, heapBottom - heapBase + 1);  // heap size = (16383 - 2048 + 1)
         do Memory.poke(freeList + 1, 0);  // address of next segment
 
@@ -48,18 +62,19 @@ class Memory {
     }
 
     /** Finds an available RAM block of the given size and returns
-     *  a reference to its base address. */
+     *  a reference to its base address. See notes at the top of the file. */
     function int alloc(int size) {
         var int block, segmentSize, nextSegment;
-        var int current, previous;
+        var int current;
 
         let current = freeList;
-        let previous = 0;
 
-        while (~(current = 0)) {
+        // First fit algorithm:
+        while (current > 0) {
             let segmentSize = Memory.peek(current);
             let nextSegment = Memory.peek(current + 1);
 
+            // If segment can be carved and at least two words in it are left over:
             if (segmentSize > size + 2) {  // segment can be carved
                 // Address of allocated block:
                 let block = current + segmentSize - size;
@@ -67,25 +82,17 @@ class Memory {
                 do Memory.poke(current, Memory.peek(current) - size - 1);
                 do Memory.poke(block - 1, size + 1);  // size of allocated block, incl. size field;
                 return block;
-            } 
-            if (segmentSize = size + 2) {  // segment can be carved, but only one register left over
-                let block = current + 1;
-                do Memory.poke(block - 1, size + 1);  // size of allocated block, incl. size field;
-                // Incorporate left over register into previous segment:
-                do Memory.poke(previous, Memory.peek(previous) + 1);
-                do Memory.poke(previous + 1, nextSegment);  // adjust next pointer of prev. segment
-                return block;
             }
-            if (segmentSize = size + 1) {  // segment can be carved, nothing left over in original
-                let block = current + 1;
-                do Memory.poke(previous + 1, nextSegment);  // adjust next pointer of prev. segment
-                return block;
+            // Otherwise at most one word in the current segment would be left over, so the
+            // remainder would not be able to hold the address of the next
+            // free segment. Thus we should look for another segment:
+            else {
+                let current = nextSegment;
             }
-            let previous = current;
-            let current = nextSegment;
         }
         // End of while, failed to allocate:
         do Output.printString("Cannot allocate, insufficient memory!");
+        do Sys.error(0);
         return -1;
     }
 
@@ -93,9 +100,8 @@ class Memory {
      *  it available for future allocations. */
     function void deAlloc(Array o) {
         // Make block address the new head of free list, and bind its next segment to original head:
-        do Memory.poke(o, freeList);
-        let freeList = o - 1;
-        
+        do Memory.poke(o, freeList);  // 1st word of block now points to previous head of free list
+        let freeList = o - 1;         // new head of free list is 0th word of block
         do Memory.defragment();
         return;
     }    
@@ -106,15 +112,15 @@ class Memory {
 
         let current = freeList;
 
-        while (~(current = 0)) {
+        while (current > 0) {
             let currentSize = Memory.peek(current);
             let next = Memory.peek(current + 1);
             
             if (next = 0) { return; }
             
             let nextSize = Memory.peek(next);
+            // Merge current and next blocks if they are adjacent:
             if (next = current + currentSize) {
-                // Merge current and next blocks if they are adjacent:
                 do Memory.poke(current, currentSize + nextSize);
                 do Memory.poke(current + 1, Memory.peek(next + 1));
             } else {

@@ -11,7 +11,7 @@ class Sys {
 
     /** Performs all the initializations required by the OS. */
     function void init() {
-        let FREQUENCY = Math.powerOfTwo(12);
+        let FREQUENCY = 9999;
 
         // Array and String are not collections of static methods,
         // hence we don't need to call their init()
@@ -51,7 +51,6 @@ class Sys {
 
         do Output.printString("ERR<");
         do Output.printInt(errorCode);
-        do Output.println();
         do Sys.halt();
         return;
     }
