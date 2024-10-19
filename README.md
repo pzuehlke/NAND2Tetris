@@ -18,18 +18,31 @@ This repository contains my solutions to the projects in the *Nand to Tetris* co
 * [Project 9](https://github.com/pzuehlke/NAND2Tetris/tree/main/09): ...
 * [Project 10](https://github.com/pzuehlke/NAND2Tetris/tree/main/10): Implement a syntax analyzer for the Jack language, consisting of a tokenizer and a parser. For testing purposes it translates the source code into an XML document which model the tree-like structure of the code. This project requires a lot of grinding.
 * [Project 11](https://github.com/pzuehlke/NAND2Tetris/tree/main/11): Implement the code generation part of the compiler, which uses the services of the syntax analyzer to translate Jack code to VM code.
-* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): Implement the OS through eight modules written in Jack, including memory management, input and output handling, and system bootstrap.
+* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): Implement the OS through eight modules written in Jack, including memory management, input and output handling, and system bootstrap. The specifications for the memory module in the video lectures and in the book (2nd ed.) are inconsistent. My solution follows the description in the book.
 
 
 ## Official resources
 * The [official website of *Nand to Tetris*](https://www.nand2tetris.org/), and in particular the [online IDE](https://nand2tetris.github.io/web-ide/chip/), which is all that one needs to complete almost every project. I couldn't find the target .xml files for Project 10 inside the IDE, had to download them [from this link](https://drive.google.com/file/d/1xZzcMIUETv3u3sdpM_oTJSTetpVee3KZ/view). Also, as of the time of writing, the IDE doesn't seem to have the "TextComparer" tool implemented, so I just used `diff -w`.
 * The [accompanying book](https://mitpress.mit.edu/9780262539807/the-elements-of-computing-systems/): Nisan, N. and Schocken, S. — *Elements of Computing Systems* (2nd ed., MIT Press).
-* The Coursera course(s): [Part I](https://www.coursera.org/learn/build-a-computer) and [Part II](https://www.coursera.org/learn/nand2tetris2), containing the video lectures. These lectures follow the book pretty closely, with some extra comments sprinkled in and some tutorials on the utilities provided in the IDE. Like every other resource, they are very well made. However, they are definitely not necessary to complete the project. I preferred to use the book when actually doing the projects since it is much easier to find the various specifications there than it is to search for the right places in the videos.
+* The Coursera course(s): [Part I](https://www.coursera.org/learn/build-a-computer) and [Part II](https://www.coursera.org/learn/nand2tetris2), containing the video lectures. These lectures follow the book pretty closely, with some extra comments sprinkled in and some tutorials on the utilities provided in the IDE. Like every other resource associated with the course, they are very well made. However, it is not necessary to watch them in order to complete the projects. I preferred to use the book when actually doing the projects since it is much easier to find the various specifications there than it is to search for the right places in the videos.
 
 
 ## Additional links
 * A [TED Talk](https://www.ted.com/talks/shimon_schocken_the_self_organizing_computer_course?subtitle=en) by Prof. Schocken about the *Nand to Tetris* course and an app co-developed by him called [*Matific*](https://www.matific.com), which teaches Math topics to children using the same learning-by-doing philosophy.
 * An interesting [podcast episode](https://www.youtube.com/watch?v=4oPZaM47f3k) where he explains what motivated him to leave a tenured position at NYU to go back to Israel and help found Reichman University, how *Nand to Tetris* was planned and created, his views on learning and teaching and some other topics.
+
+## Errata
+Here is a list of typos that I found while reading the book (2nd ed.), none of them significant:
+* Page 39, 2nd line after the table: "if `(zx==1)`" should be "if `(zx=1)`" for consistency.
+* Page 67, last line: "`;0`" should be "`0;`".
+* Page 146, last paragraph: "the Microsoft's .NET" should be "Microsoft's .NET".
+* Page 150, 2nd paragraph of Example: `ng` should be `neg`.
+* Page 161, 4th line after Figure 8.5: "affects" should be "effects".
+* Page 174, 2nd paragraph, 3rd line: "_Application Program Interface_" should be "_Application Programming Interface_".
+* Page 213, Figure 11: In the field declarations of the `Point.jack` program, ther is a missing semicolon at the end.
+* Page 246, 4th line: "we better" should be "we'd better".
+* Page 251, 1st and 2nd lines of Figure 12.3: missing spaces in "part of`y`" and in "integer`y`".
+* Page 261, 3rd line in the paragraph titled "`Init` functions": "fucntion" should be "function".
 
 ## Some personal comments
 This course and the associated resources are a pedagogical masterpiece. One can only imagine the amount of work it must have taken to produce all of the course
