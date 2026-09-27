@@ -17,7 +17,7 @@ CHIP PC {
         // Decide whether a new value should be loaded:
         Or8Way(in[0]=load, in[1]=reset, in[2]=inc, in[3..7]=false, out=load1);
         
-        Inc16(in=previous, out=previousp);  // Compute (in + 1)
+        Inc16(in=previous, out=previousp);  // Compute (out + 1)
         Mux16(a=previousp, b=in, sel=load, out=current);
         Mux16(a=current, b=false, sel=reset, out=in0);
         

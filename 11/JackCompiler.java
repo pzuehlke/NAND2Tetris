@@ -1,7 +1,7 @@
 import java.io.File;
 import java.io.IOException;
 
-public class JackAnalyzer {
+public class JackCompiler {
     private static String getBaseName(String fileName) {
         int dotIndex = fileName.lastIndexOf(".");
         return (dotIndex != -1) ? fileName.substring(0, dotIndex) : fileName;
@@ -26,14 +26,7 @@ public class JackAnalyzer {
     }
 
     private static String getTargetFilePath(String source) {
-        File sourceFile = new File(source);
-        if (sourceFile.isDirectory()) {
-            String dirPath = sourceFile.getAbsolutePath();
-            String baseName = sourceFile.getName();
-            return new File(dirPath, baseName + ".xml").getAbsolutePath();
-        } else {
-            return getBaseName(source) + ".xml";
-        }
+            return getBaseName(source) + ".vm";
     }
 
     public static void main(String[] args) {

@@ -1,4 +1,5 @@
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
@@ -12,194 +13,127 @@ public class CodeWriter {
     public CodeWriter(String fileName) throws IOException {
         writer = new BufferedWriter(new FileWriter(fileName));
         uniqueLabels = 0;
-        this.fileName = fileName;
+        // Static variables are named Xxx.i, where Xxx is the file name
+        // without directories or extension:
+        String name = new File(fileName).getName();
+        int dotIndex = name.lastIndexOf(".");
+        this.fileName = (dotIndex == -1) ? name : name.substring(0, dotIndex);
     }
 
     private static HashMap<String, String> segmentMap = new HashMap<>();
     static {
-        segmentMap.put("local", "LCL");
+        segmentMap.put("local",    "LCL");
         segmentMap.put("argument", "ARG");
-        segmentMap.put("this", "THIS");
-        segmentMap.put("that", "THAT");
-        segmentMap.put("temp", "TEMP");
-        segmentMap.put("pointer", "SP");
-        segmentMap.put("constant", "");
+        segmentMap.put("this",     "THIS");
+        segmentMap.put("that",     "THAT");
     }
 
-    private void popIntoRegister(String register) throws IOException {
-        writer.write("// Pop the top value from the stack into register " + register + ":\n");
-        writer.write("@SP\n");
-        writer.write("M=M-1\n");
-        writer.write("A=M\n");
-        writer.write(register + "=M\n");
+    private static HashMap<String, String> operationMap = new HashMap<>();
+    static {
+        operationMap.put("add", "M=D+M");
+        operationMap.put("sub", "M=M-D");
+        operationMap.put("and", "M=D&M");
+        operationMap.put("or",  "M=D|M");
+        operationMap.put("neg", "M=-M");
+        operationMap.put("not", "M=!M");
     }
 
-    private void pushFromRegister(String register) throws IOException {
-        writer.write("// Push the value in the register " + register + " onto the stack:\n");
+    private void popIntoD() throws IOException {
+        writer.write("// Pop the top value from the stack into D:\n");
         writer.write("@SP\n");
-        writer.write("A=M\n");
-        writer.write("M=" + register + "\n");
+        writer.write("AM=M-1\n");
+        writer.write("D=M\n");
+    }
+
+    private void pushFromD() throws IOException {
+        writer.write("// Push the value in D onto the stack:\n");
         writer.write("@SP\n");
         writer.write("M=M+1\n");
+        writer.write("A=M-1\n");
+        writer.write("M=D\n");
     }
 
     public void writeArithmetic(String command) throws IOException {
-        // Binary operations:
-        if (command.equals("add") || command.equals("sub")
-            || command.equals("and") || command.equals("or")) {
-            // Pop the right operand into the D register:
-            popIntoRegister("D");
-            // Pop the left operand, apply the operation and store the result in D:
-            writer.write("// Pop the other operand and perform a binary operation; " +
-                "save result in D:\n");
-            writer.write("@SP\n");
-            writer.write("M=M-1\n");
-            writer.write("A=M\n");
-            if (command.equals("add")) { writer.write("D=D+M\n"); }
-            if (command.equals("sub")) { writer.write("D=M-D\n"); }
-            if (command.equals("and")) { writer.write("D=D&M\n"); }
-            if (command.equals("or"))  { writer.write("D=D|M\n"); }
-            // Push the result from the D register onto the stack:
-            pushFromRegister("D");
-        }
-
-        // Unary operations:
+        writer.write("// " + command + "\n");
         if (command.equals("neg") || command.equals("not")) {
-            popIntoRegister("D");
-            // Apply unary operation (negation):
-            writer.write("// Apply unary operation (negation):\n");
-            if (command.equals("neg")) { writer.write("D=-D\n"); }
-            else if (command.equals("not")) { writer.write("D=!D\n"); }
-            pushFromRegister("D");
-        }
-
-        // Comparison operations:
-        if (command.equals("eq") || command.equals("gt") || command.equals("lt")) {
-            // Pop the right operand into the D register:
-            popIntoRegister("D");
-            // Pop the left operand, compute the difference and store the result in D:
+            // Unary operation: point A at the operand on top of the stack:
             writer.write("@SP\n");
-            writer.write("M=M-1\n");
-            writer.write("A=M\n");
+            writer.write("A=M-1\n");
+        } else {
+            // Binary operation: pop the right operand into D and point A at the left one:
+            popIntoD();
+            writer.write("A=A-1\n");
+        }
+        // The result overwrites the (left) operand in place, so SP is already correct:
+        if (command.equals("eq") || command.equals("gt") || command.equals("lt")) {
+            // Save True (-1), then overwrite it with False (0) if the comparison fails:
+            String endLabel = "END_" + uniqueLabels++;
             writer.write("D=M-D\n");
-            // Generate unique labels to realize the comparison and decide which value to push:
-            String trueLabel = "TRUE_" + uniqueLabels;
-            String endLabel = "END_" + uniqueLabels;
-            uniqueLabels++;
-            // Test if comparison evaluates to True based on command:
-            if (command.equals("eq")) {
-                writer.write("// Test equality:\n");
-                writer.write("@" + trueLabel + "\n");
-                writer.write("D;JEQ\n");
-            }
-            else if (command.equals("gt")) {
-                writer.write("// Test if 1st operand greater than 2nd operand:\n");
-                writer.write("@" + trueLabel + "\n");
-                writer.write("D;JGT\n");
-            }
-            else if (command.equals("lt")) {
-                writer.write("// Test if 1st operand less than 2nd operand:\n");
-                writer.write("@" + trueLabel + "\n");
-                writer.write("D;JLT\n");
-            }
-            // If not True, set D to 0 (False) and jump to endLabel:
-            writer.write("// Initially save False (0) in the D register:\n");
-            writer.write("D=0\n");
+            writer.write("M=-1\n");
             writer.write("@" + endLabel + "\n");
-            writer.write("0;JMP\n");  // Jump to end to skip setting true result
-            // trueLabel: If True, set D to -1 (True):
-            writer.write("// Comparison holds, save True (-1) in the D register:\n");
-            writer.write("(" + trueLabel + ")\n");
-            writer.write("D=-1\n");  // D = true
-            // endLabel:
+            writer.write("D;J" + command.toUpperCase() + "\n");  // JEQ, JGT or JLT
+            writer.write("@SP\n");
+            writer.write("A=M-1\n");
+            writer.write("M=0\n");
             writer.write("(" + endLabel + ")\n");
-            // Push the result onto the stack:
-            pushFromRegister("D");
+        } else {
+            writer.write(operationMap.get(command) + "\n");
         }
     }
 
     public void writePushPop(String command, String segment, int index) throws IOException {
+        writer.write("// " + command + " " + segment + " " + index + "\n");
+        String address = null;
+        if (segment.equals("temp"))    { address = "R" + (5 + index); }  // temp starts at 5
+        if (segment.equals("pointer")) { address = (index == 0) ? "THIS" : "THAT"; }
+        if (segment.equals("static"))  { address = fileName + "." + index; }
+
         if (command.equals("push")) {
             if (segment.equals("constant")) {
-                writer.write("// Push a constant into D:\n");
                 writer.write("@" + index + "\n");
                 writer.write("D=A\n");
-            }
-            else if (segment.equals("temp")) {
-                writer.write("// Push from temp segment into D:\n");
-                writer.write("@" + (5 + index) + "\n");  // temp starts at 5
+            } else if (address != null) {  // temp, pointer or static
+                writer.write("@" + address + "\n");
                 writer.write("D=M\n");
-            } 
-            else if (segment.equals("pointer")) {
-                writer.write("// Push from pointer segment (THIS/THAT) into D:\n");
-                if (index == 0) {
-                    writer.write("@THIS\n");  // pointer 0 refers to THIS
-                } else {
-                    writer.write("@THAT\n");  // pointer 1 refers to THAT
-                }
-                writer.write("D=M\n");
-            } 
-            else if (segment.equals("static")) {
-                writer.write("// Prepare to push from the static segment into D:\n");
-                writer.write("@" + fileName + "." + index + "\n");
-                writer.write("D=M\n");
-            }
-            else {  // indirect memory access for local, argument, this and that:
-                writer.write("// Prepare to push from local, argument, this or that segment into D:\n");
+            } else {  // local, argument, this, that
                 writer.write("@" + segmentMap.get(segment) + "\n");
                 writer.write("D=M\n");
                 writer.write("@" + index + "\n");
                 writer.write("A=D+A\n");
                 writer.write("D=M\n");
             }
-            pushFromRegister("D");
+            pushFromD();
         }
 
         if (command.equals("pop")) {
-            writer.write("// Store address of " + segment + " " + index + " in register 13:\n");
-            if (segment.equals("temp")) {
-                writer.write("@" + (5 + index) + "\n");  // temp starts at 5
-                writer.write("D=A\n");
-            } 
-            else if (segment.equals("pointer")) {
-                writer.write("// Store address for pointer (THIS/THAT):\n");
-                if (index == 0) {
-                    writer.write("@THIS\n");  // pointer 0 -> THIS
-                } else {
-                    writer.write("@THAT\n");  // pointer 1 -> THAT
-                }
-                writer.write("D=A\n");
-            } 
-            else if (segment.equals("static")) {
-                writer.write("@" + fileName + "." + index + "\n");
-                writer.write("D=A\n");
-            }
-            else {  // indirect memory access for local, argument, this and that:
+            if (address != null) {  // temp, pointer or static
+                popIntoD();
+                writer.write("@" + address + "\n");
+                writer.write("M=D\n");
+            } else {
+                // Store the target address in R13, pop into D, then write D to that address:
                 writer.write("@" + segmentMap.get(segment) + "\n");
                 writer.write("D=M\n");
                 writer.write("@" + index + "\n");
                 writer.write("D=D+A\n");
+                writer.write("@R13\n");
+                writer.write("M=D\n");
+                popIntoD();
+                writer.write("@R13\n");
+                writer.write("A=M\n");
+                writer.write("M=D\n");
             }
-            // Store the address temporarily in register 13:
-            writer.write("@13\n");
-            writer.write("M=D\n");
-            popIntoRegister("D");
-            writer.write("@13\n");
-            writer.write("A=M\n");
-            writer.write("M=D\n");
         }
     }
 
     public void writeFinalInfiniteLoop() throws IOException {
         writer.write("// End the program with an infinite loop:\n");
         writer.write("(END)\n");
-        writer.write("@END\n");
-        writer.write("0;JMP\n");
+        writer.write("\t@END\n");
+        writer.write("\t0;JMP\n");
     }
 
     public void close() throws IOException {
-        if (writer != null) {
-            writer.close();
-        }
+        writer.close();
     }
 }

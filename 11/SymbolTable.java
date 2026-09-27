@@ -3,7 +3,7 @@ import java.util.Map;
 
 public class SymbolTable {
     public enum Kind {
-        STATIC, FIELD, ARG, VAR
+        STATIC, FIELD, ARG, VAR, NONE
     }
 
     private Map<String, Symbol> classScopeTable;
@@ -25,7 +25,6 @@ public class SymbolTable {
         indexCounters.put(Kind.VAR, 0);
     }
 
-
     public void define(String name, String type, Kind kind) {
         int index = indexCounters.get(kind);
         Symbol symbol = new Symbol(type, kind, index);
@@ -46,7 +45,7 @@ public class SymbolTable {
 
     public Kind kindOf(String name) {
         Symbol symbol = lookup(name);
-        return (symbol != null) ? symbol.kind : null;
+        return (symbol != null) ? symbol.kind : Kind.NONE;
 
     }
 

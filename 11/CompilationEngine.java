@@ -3,22 +3,24 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 
 public class CompilationEngine {
-    private BufferedWriter writer;
+    private VMWriter writer;
     private JackTokenizer tokenizer;
-    private int indentationLevel;
+    private SymbolTable symbolTable;
+    private String className;
+    private String currentFunction;
+    private int whileCounter;  // necessary for the labels
+    private int ifCounter;  // necessary for the labels
 
     public CompilationEngine(JackTokenizer tokenizer, String outputPath) throws Exception {
-        this.writer = new BufferedWriter(new FileWriter(outputPath));
+        this.writer = new VMWriter(outputPath);
         this.tokenizer = tokenizer;
-        this.indentationLevel = 0;
+        this.symbolTable = new SymbolTable();
     }
 
     public void compileClass() throws Exception {
-        // The text says we should add a "tokens" tag, but comparison fails if we add it:
-        // beginTag("tokens"); 
-        beginTag("class");
         consumeKeyword("class");
-        consumeIdentifier();
+        className = tokenizer.identifier();
+        consumeIdentifier();  // consume class name
         consumeSymbol('{');
 
         // Compile class variable declarations:
@@ -36,407 +38,556 @@ public class CompilationEngine {
         }
 
         consumeSymbol('}');
-        closeTag("class");
-        // The text says we should add a "tokens" tag, but comparison fails if we add it:
-        // closeTag("tokens");
         writer.close();
     }
 
     public void compileClassVarDec() throws Exception {
-        beginTag("classVarDec");
-        consumeKeyword("static", "field");
+        SymbolTable.Kind kind;
+        if (tokenizer.keyword() == KeywordType.STATIC) {
+            kind = SymbolTable.Kind.STATIC;
+        } else {
+            kind = SymbolTable.Kind.FIELD;
+        }
+
+        String type;
+        if (tokenizer.tokenType() == TokenType.KEYWORD) {
+            type = tokenizer.keyword().toString().toLowerCase();
+        } else {  // it's an object, type = class name
+            type = tokenizer.identifier();
+        }
         compileType();
+
+        // add new variable to symbol table:
+        String name = tokenizer.identifier();
+        symbolTable.define(name, type, kind);
         consumeIdentifier();
+
         while (tokenizer.symbol() == ',') {
             consumeSymbol(',');
+            name = tokenizer.identifier();
+            symbolTable.define(name, type, kind);
             consumeIdentifier();
         }
         consumeSymbol(';');
-        closeTag("classVarDec");
     }
 
     public void compileSubroutine() throws Exception {
-        beginTag("subroutineDec");
+        String subroutineType = tokenizer.keyword().toString().toLowerCase();
+        if (subroutineType.equals("method")) {
+            symbolTable.define("this", className, SymbolTable.Kind.ARG);
+        }
         consumeKeyword("constructor", "function", "method");
+
+
+        String returnType;
         if (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == KeywordType.VOID) {
+            returnType = "void";
             consumeKeyword("void");
         } else {
+            returnType = tokenizer.keyword().toString().toLowerCase();
             compileType();
         }
+
+        String functionName = tokenizer.identifier();
         consumeIdentifier();
+        currentFunction = className + "." + functionName;
+
         consumeSymbol('(');
         compileParameterList();
         consumeSymbol(')');
-        compileSubroutineBody();
-        closeTag("subroutineDec");
+        compileSubroutineBody(subroutineType);
     }
 
     public void compileParameterList() throws Exception {
-        beginTag("parameterList");
+        // ((type varName) (, type varName)*)?
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
+            String type;
+            if (tokenizer.tokenType() == TokenType.KEYWORD) {
+                type = tokenizer.keyword().toString().toLowerCase();
+            } else {
+                type = tokenizer.identifier();
+            }
             compileType();
+
+            String name = tokenizer.identifier();
+            symbolTable.define(name, type, SymbolTable.Kind.ARG);
             consumeIdentifier();
+
+            // there are more parameters:
             while (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
                 consumeSymbol(',');
+                if (tokenizer.tokenType() == TokenType.KEYWORD) {
+                    type = tokenizer.keyword().toString().toLowerCase();
+                } else {
+                    type = tokenizer.identifier();
+                }
                 compileType();
+                name = tokenizer.identifier();
+                symbolTable.define(name, type, SymbolTable.Kind.ARG);
                 consumeIdentifier();
             }
         }
-        closeTag("parameterList");
     }
 
-    public void compileSubroutineBody() throws Exception {
-        beginTag("subroutineBody");
+    public void compileSubroutineBody(String subroutineType) throws Exception {
         consumeSymbol('{');
+        int nVars = 0;
         while (tokenizer.tokenType() == TokenType.KEYWORD &&
                 tokenizer.keyword() == KeywordType.VAR) {
-            compileVarDec();
+            nVars += compileVarDec();
         }
+
+        writer.writeFunction(currentFunction, nVars);
+
+        if (subroutineType.equals("constructor")) {
+            // Allocate necessary memory for the object:
+            int fieldCount = symbolTable.varCount(SymbolTable.Kind.FIELD);
+            writer.writePush(VMWriter.Segment.CONST, fieldCount);
+            writer.writeCall("Memory.alloc", 1);
+            writer.writePop(VMWriter.Segment.POINTER, 0);
+        } else if (subroutineType.equals("method")) {
+            // Set THIS to 0:
+            writer.writePush(VMWriter.Segment.ARG, 0);
+            writer.writePop(VMWriter.Segment.POINTER, 0);
+        }
+
         compileStatements();
         consumeSymbol('}');
-        closeTag("subroutineBody");
     }
 
-    public void compileVarDec() throws Exception {
-        beginTag("varDec");
+    private int compileVarDec() throws Exception {
+        // var type varName (, varName)* ;
+        int varCount = 0;
         consumeKeyword("var");
+        
+        String type = tokenizer.tokenType() == TokenType.KEYWORD ? 
+            tokenizer.keyword().toString().toLowerCase() : tokenizer.identifier();
         compileType();
+
+        String name = tokenizer.identifier();
+        symbolTable.define(name, type, SymbolTable.Kind.VAR);
         consumeIdentifier();
-        while (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+        varCount++;
+
+        while (tokenizer.symbol() == ',') {
             consumeSymbol(',');
+            name = tokenizer.identifier();
+            symbolTable.define(name, type, SymbolTable.Kind.VAR);
             consumeIdentifier();
+            varCount++;
         }
         consumeSymbol(';');
-        closeTag("varDec");
+        return varCount;
     }
 
-    public void compileStatements() throws Exception {
-        beginTag("statements");
-        while (isStatementKeyword()) {
-            compileStatement();
-        }
-        closeTag("statements");
-    }
-
-    private void compileStatement() throws Exception {
-        switch (tokenizer.keyword()) {
-            case LET:
-                compileLet();
-                break;
-            case IF:
-                compileIf();
-                break;
-            case WHILE:
-                compileWhile();
-                break;
-            case DO:
-                compileDo();
-                break;
-            case RETURN:
-                compileReturn();
-                break;
-            default:
-                throw new Exception("Unexpected statement keyword: " + tokenizer.keyword());
-        }
-    }
-
-    public void compileLet() throws Exception {
-        beginTag("letStatement");
+    private void compileLet() throws Exception {
+        // let varName ([expression])? = expression ;
         consumeKeyword("let");
+        
+        String varName = tokenizer.identifier();
         consumeIdentifier();
+
+        // Handle array assignment
+        boolean isArray = false;
         if (tokenizer.symbol() == '[') {
+            isArray = true;
             consumeSymbol('[');
-            compileExpression();
+            compileExpression();  // Push array index
             consumeSymbol(']');
+            
+            // Push array base address
+            SymbolTable.Kind kind = symbolTable.kindOf(varName);
+            int index = symbolTable.indexOf(varName);
+            writer.writePush(kindToSegment(kind), index);
+            
+            // Calculate target address
+            writer.writeArithmetic(VMWriter.Command.ADD);
         }
+
         consumeSymbol('=');
-        compileExpression();
+        compileExpression();  // Push value to assign
         consumeSymbol(';');
-        closeTag("letStatement");
+
+        if (isArray) {
+            writer.writePop(VMWriter.Segment.TEMP, 0);     
+            writer.writePop(VMWriter.Segment.POINTER, 1);  
+            writer.writePush(VMWriter.Segment.TEMP, 0);    
+            writer.writePop(VMWriter.Segment.THAT, 0);     
+        } else {
+            SymbolTable.Kind kind = symbolTable.kindOf(varName);
+            int index = symbolTable.indexOf(varName);
+            writer.writePop(kindToSegment(kind), index);
+        }
     }
 
-    public void compileIf() throws Exception {
-        beginTag("ifStatement");
+    private void compileIf() throws Exception {
+        String labelTrue = "IF_TRUE" + ifCounter;
+        String labelFalse = "IF_FALSE" + ifCounter;
+        String labelEnd = "IF_END" + ifCounter;
+        ifCounter++;
+
         consumeKeyword("if");
         consumeSymbol('(');
         compileExpression();
         consumeSymbol(')');
+
+        writer.writeIf(labelTrue);
+        writer.writeGoto(labelFalse);
+        writer.writeLabel(labelTrue);
+
         consumeSymbol('{');
         compileStatements();
         consumeSymbol('}');
-        if (tokenizer.tokenType() == TokenType.KEYWORD &&
-                tokenizer.keyword() == KeywordType.ELSE) {
+
+        if (tokenizer.tokenType() == TokenType.KEYWORD && 
+            tokenizer.keyword() == KeywordType.ELSE) {
+            writer.writeGoto(labelEnd);
+            writer.writeLabel(labelFalse);
             consumeKeyword("else");
             consumeSymbol('{');
             compileStatements();
             consumeSymbol('}');
+            writer.writeLabel(labelEnd);
+        } else {
+            writer.writeLabel(labelFalse);
         }
-        closeTag("ifStatement");
     }
 
-    public void compileWhile() throws Exception {
-        beginTag("whileStatement");
+    private void compileWhile() throws Exception {
+        String labelLoop = "WHILE_EXP" + whileCounter;
+        String labelEnd = "WHILE_END" + whileCounter;
+        whileCounter++;
+
         consumeKeyword("while");
+        writer.writeLabel(labelLoop);
+        
         consumeSymbol('(');
         compileExpression();
         consumeSymbol(')');
+
+        writer.writeArithmetic(VMWriter.Command.NOT);
+        writer.writeIf(labelEnd);
+
         consumeSymbol('{');
         compileStatements();
         consumeSymbol('}');
-        closeTag("whileStatement");
+
+        writer.writeGoto(labelLoop);
+        writer.writeLabel(labelEnd);
     }
 
-    public void compileDo() throws Exception {
-        beginTag("doStatement");
+    private void compileDo() throws Exception {
         consumeKeyword("do");
         compileSubroutineCall();
         consumeSymbol(';');
-        closeTag("doStatement");
+        // Void methods/functions must pop the returned value
+        writer.writePop(VMWriter.Segment.TEMP, 0);
     }
 
-    public void compileReturn() throws Exception {
-        beginTag("returnStatement");
+    private void compileReturn() throws Exception {
         consumeKeyword("return");
-        if (tokenizer.tokenType() != TokenType.SYMBOL ||
+        if (tokenizer.tokenType() != TokenType.SYMBOL || 
             tokenizer.symbol() != ';') {
             compileExpression();
+        } else {
+            writer.writePush(VMWriter.Segment.CONST, 0);  // Push 0 for void functions
         }
         consumeSymbol(';');
-        closeTag("returnStatement");
+        writer.writeReturn();
     }
 
-    public void compileExpression() throws Exception {
-        // System.out.println("Compiling expression");
-        beginTag("expression");
+    private void compileExpression() throws Exception {
         compileTerm();
         while (isOp()) {
-            compileOp();
+            char op = tokenizer.symbol();
+            consumeSymbol(op);
             compileTerm();
+            compileOp(op);
         }
-        closeTag("expression");
     }
 
-    public void compileTerm() throws Exception {
-        // System.out.println("Compiling term");
-        beginTag("term");
+    private void compileTerm() throws Exception {
         switch (tokenizer.tokenType()) {
             case INT_CONST:
+                writer.writePush(VMWriter.Segment.CONST, tokenizer.intVal());
                 consumeIntegerConstant();
                 break;
+
             case STRING_CONST:
+                String str = tokenizer.stringVal();
+                writer.writePush(VMWriter.Segment.CONST, str.length());
+                writer.writeCall("String.new", 1);
+                for (char c : str.toCharArray()) {
+                    writer.writePush(VMWriter.Segment.CONST, (int)c);
+                    writer.writeCall("String.appendChar", 2);
+                }
                 consumeStringConstant();
                 break;
+
             case KEYWORD:
                 if (isKeywordConstant()) {
-                    compileKeywordConstant();
-                } else {
-                    throw new Exception("Unexpected keyword in term: " + tokenizer.keyword());
+                    KeywordType keyword = tokenizer.keyword();
+                    switch (keyword) {
+                        case TRUE:
+                            writer.writePush(VMWriter.Segment.CONST, 0);
+                            writer.writeArithmetic(VMWriter.Command.NOT);
+                            break;
+                        case FALSE:
+                        case NULL:
+                            writer.writePush(VMWriter.Segment.CONST, 0);
+                            break;
+                        case THIS:
+                            writer.writePush(VMWriter.Segment.POINTER, 0);
+                            break;
+                    }
+                    consumeKeyword("true", "false", "null", "this");
                 }
                 break;
+
             case IDENTIFIER:
-                String nextToken = tokenizer.peekAhead();
-                // System.out.println("Peeking ahead to next token: " + nextToken);
-                if (nextToken.equals("[")) {
-                    consumeIdentifier();
+                String name = tokenizer.identifier();
+                tokenizer.advance();
+                
+                if (tokenizer.tokenType() == TokenType.SYMBOL && 
+                    tokenizer.symbol() == '[') {
+                    // Array access
                     consumeSymbol('[');
                     compileExpression();
                     consumeSymbol(']');
-                } else if (nextToken.equals("(") ||  nextToken.equals(".")) {
-                    compileSubroutineCall();
+                    
+                    SymbolTable.Kind kind = symbolTable.kindOf(name);
+                    int index = symbolTable.indexOf(name);
+                    writer.writePush(kindToSegment(kind), index);
+                    writer.writeArithmetic(VMWriter.Command.ADD);
+                    writer.writePop(VMWriter.Segment.POINTER, 1);
+                    writer.writePush(VMWriter.Segment.THAT, 0);
+                } else if (tokenizer.tokenType() == TokenType.SYMBOL && 
+                         (tokenizer.symbol() == '(' || tokenizer.symbol() == '.')) {
+                    // Subroutine call
+                    compileSubroutineCall(name);
                 } else {
-                    consumeIdentifier();
+                    // Variable
+                    SymbolTable.Kind kind = symbolTable.kindOf(name);
+                    int index = symbolTable.indexOf(name);
+                    writer.writePush(kindToSegment(kind), index);
                 }
                 break;
+
             case SYMBOL:
                 if (tokenizer.symbol() == '(') {
                     consumeSymbol('(');
                     compileExpression();
                     consumeSymbol(')');
                 } else if (isUnaryOp()) {
-                    compileUnaryOp();
+                    char op = tokenizer.symbol();
+                    consumeSymbol(op);
                     compileTerm();
-                } else {
-                    throw new Exception("Unexpected symbol in term: " + tokenizer.symbol());
+                    if (op == '-') {
+                        writer.writeArithmetic(VMWriter.Command.NEG);
+                    } else if (op == '~') {
+                        writer.writeArithmetic(VMWriter.Command.NOT);
+                    }
                 }
                 break;
-            default:
-                throw new Exception("Unexpected token type in term: " + tokenizer.tokenType());
         }
-        closeTag("term");
     }
 
     private void compileSubroutineCall() throws Exception {
-        // System.out.println("Compiling subroutine call");
-        consumeIdentifier();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '.') {
-            consumeSymbol('.');
-            consumeIdentifier();
-        }
-        consumeSymbol('(');
-        compileExpressionList();
-        consumeSymbol(')');
+        String name = tokenizer.identifier();
+        compileSubroutineCall(name);
     }
 
-    public int compileExpressionList() throws Exception {
-        // System.out.println("Compiling expression list");
-        beginTag("expressionList");
-        int expressionCount = 0;
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
+    private void compileSubroutineCall(String name) throws Exception {
+        int nArgs = 0;
+        String functionName;
+
+        if (tokenizer.symbol() == '.') {
+            consumeSymbol('.');
+            String methodName = tokenizer.identifier();
+            consumeIdentifier();
+
+            // Check if it's a method call on an object
+            SymbolTable.Kind kind = symbolTable.kindOf(name);
+            if (kind != null) {
+                String type = symbolTable.typeOf(name);
+                int index = symbolTable.indexOf(name);
+                writer.writePush(kindToSegment(kind), index);
+                functionName = type + "." + methodName;
+                nArgs = 1;
+            } else {
+                // It's a function call
+                functionName = name + "." + methodName;
+            }
+        } else {
+            // Method call on this object
+            writer.writePush(VMWriter.Segment.POINTER, 0);
+            functionName = className + "." + name;
+            nArgs = 1;
+        }
+
+        consumeSymbol('(');
+        nArgs += compileExpressionList();
+        consumeSymbol(')');
+
+        writer.writeCall(functionName, nArgs);
+    }
+
+    private int compileExpressionList() throws Exception {
+        int nArgs = 0;
+        if (tokenizer.tokenType() != TokenType.SYMBOL || 
+            tokenizer.symbol() != ')') {
             compileExpression();
-            expressionCount = 1;
-            while (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+            nArgs = 1;
+            
+            while (tokenizer.tokenType() == TokenType.SYMBOL && 
+                   tokenizer.symbol() == ',') {
                 consumeSymbol(',');
                 compileExpression();
-                expressionCount++;
+                nArgs++;
             }
         }
-        closeTag("expressionList");
-        return expressionCount;
+        return nArgs;
     }
 
-    private boolean isSymbol(char... symbols) {
-        if (tokenizer.tokenType() != TokenType.SYMBOL) {
-            return false;
-        }
-        for (char symbol : symbols) {
-            if (tokenizer.symbol() == symbol) {
-                return true;
+    private void compileStatements() throws Exception {
+        while (isStatementKeyword()) {
+            switch (tokenizer.keyword()) {
+                case LET:
+                    compileLet();
+                    break;
+                case IF:
+                    compileIf();
+                    break;
+                case WHILE:
+                    compileWhile();
+                    break;
+                case DO:
+                    compileDo();
+                    break;
+                case RETURN:
+                    compileReturn();
+                    break;
+                default:
+                    throw new Exception("Unexpected statement keyword: " + tokenizer.keyword());
             }
         }
-        return false;
+    }
+
+    private void compileOp(char op) throws IOException {
+        switch (op) {
+            case '+':
+                writer.writeArithmetic(VMWriter.Command.ADD);
+                break;
+            case '-':
+                writer.writeArithmetic(VMWriter.Command.SUB);
+                break;
+            case '*':
+                writer.writeCall("Math.multiply", 2);
+                break;
+            case '/':
+                writer.writeCall("Math.divide", 2);
+                break;
+            case '&':
+                writer.writeArithmetic(VMWriter.Command.AND);
+                break;
+            case '|':
+                writer.writeArithmetic(VMWriter.Command.OR);
+                break;
+            case '<':
+                writer.writeArithmetic(VMWriter.Command.LT);
+                break;
+            case '>':
+                writer.writeArithmetic(VMWriter.Command.GT);
+                break;
+            case '=':
+                writer.writeArithmetic(VMWriter.Command.EQ);
+                break;
+        }
     }
 
     private boolean isOp() {
-        return isSymbol('+', '-', '*', '/', '&', '|', '<', '>', '=');
+        return tokenizer.tokenType() == TokenType.SYMBOL && 
+               "+-*/&|<>=".indexOf(tokenizer.symbol()) != -1;
     }
 
     private boolean isUnaryOp() {
-        return isSymbol('-', '~');
-    }
-
-    private void compileOp() throws Exception {
-        consumeSymbol('+', '-', '*', '/', '&', '|', '<', '>', '=');
-    }
-
-    private void compileUnaryOp() throws Exception {
-        consumeSymbol('-', '~');
-    }
-
-    private void compileKeywordConstant() throws Exception {
-        consumeKeyword("true", "false", "null", "this");
-    }
-
-    private boolean isStatementKeyword() {
-        return (tokenizer.tokenType() == TokenType.KEYWORD &&
-                (tokenizer.keyword() == KeywordType.LET    ||
-                 tokenizer.keyword() == KeywordType.IF     ||
-                 tokenizer.keyword() == KeywordType.WHILE  ||
-                 tokenizer.keyword() == KeywordType.DO     ||
-                 tokenizer.keyword() == KeywordType.RETURN ));
+        return tokenizer.tokenType() == TokenType.SYMBOL && 
+               "-~".indexOf(tokenizer.symbol()) != -1;
     }
 
     private boolean isKeywordConstant() {
-        return (tokenizer.tokenType() == TokenType.KEYWORD  &&
-                (tokenizer.keyword() == KeywordType.TRUE   ||
-                 tokenizer.keyword() == KeywordType.FALSE  ||
-                 tokenizer.keyword() == KeywordType.NULL   ||
-                 tokenizer.keyword() == KeywordType.THIS   ));
+        return tokenizer.tokenType() == TokenType.KEYWORD && 
+               (tokenizer.keyword() == KeywordType.TRUE ||
+                tokenizer.keyword() == KeywordType.FALSE ||
+                tokenizer.keyword() == KeywordType.NULL ||
+                tokenizer.keyword() == KeywordType.THIS);
     }
 
-    private void beginTag(String tag) throws IOException {
-        String indentation = "  ".repeat(indentationLevel);
-        writer.write(indentation + "<" + tag + ">\n");
-        indentationLevel++;
+    private boolean isStatementKeyword() {
+        return tokenizer.tokenType() == TokenType.KEYWORD &&
+               (tokenizer.keyword() == KeywordType.LET ||
+                tokenizer.keyword() == KeywordType.IF ||
+                tokenizer.keyword() == KeywordType.WHILE ||
+                tokenizer.keyword() == KeywordType.DO ||
+                tokenizer.keyword() == KeywordType.RETURN);
     }
 
-    private void closeTag(String tag) throws IOException {
-        indentationLevel--;
-        String indentation = "  ".repeat(indentationLevel);
-        writer.write(indentation + "</" + tag + ">\n");
+    private VMWriter.Segment kindToSegment(SymbolTable.Kind kind) {
+        switch (kind) {
+            case STATIC: return VMWriter.Segment.STATIC;
+            case FIELD: return VMWriter.Segment.THIS;
+            case ARG: return VMWriter.Segment.ARG;
+            case VAR: return VMWriter.Segment.LOCAL;
+            default: throw new IllegalArgumentException("Unknown kind: " + kind);
+        }
     }
 
-    private void writeXML(String tag, String content) throws IOException {
-        String indentation = "  ".repeat(indentationLevel);
-        writer.write(indentation + "<" + tag + "> " + content + " </" + tag + ">\n");
-    }
-
+    // Helper methods for consuming tokens
     private void consumeIdentifier() throws Exception {
         if (tokenizer.tokenType() != TokenType.IDENTIFIER) {
-            throw new Exception("Expected identifier, but found a token of type " +
-                    tokenizer.tokenType());
-        } else {
-            // For debugging purposes:
-            // System.out.println("identifier: " + tokenizer.identifier());
-            writeXML("identifier", tokenizer.identifier());
-            tokenizer.advance();
+            throw new Exception("Expected identifier, but found " + tokenizer.tokenType());
         }
-    }
-
-    private void consumeSymbol(char... symbols) throws Exception {
-        if (tokenizer.tokenType() != TokenType.SYMBOL) {
-            throw new Exception("Expected a symbol, but found a token of type " +
-                    tokenizer.tokenType());
-        }
-        boolean found = false;
-        for (char symbol : symbols) {
-            if (tokenizer.symbol() == symbol) {
-                found = true;
-                if ("<>\"&".indexOf(symbol) == -1) {
-                    writeXML("symbol", String.valueOf(symbol));
-                } else {
-                    switch (symbol) {
-                        case '<':
-                            writeXML("symbol", "&lt;");
-                            break;
-                        case '>':
-                            writeXML("symbol", "&gt;");
-                            break;
-                        case '"':
-                            writeXML("symbol", "&quot;");
-                            break;
-                        case '&':
-                            writeXML("symbol", "&amp;");
-                            break;
-                    }
-                }
-                tokenizer.advance();
-                return;
-            }
-        }
-        if (!found) {
-            throw new Exception("Expected a different symbol from " + tokenizer.symbol());
-        }
-    }
-
-    private void consumeIntegerConstant() throws IOException {
-        writeXML("integerConstant", String.valueOf(tokenizer.intVal()));
         tokenizer.advance();
     }
 
-    private void consumeStringConstant() throws IOException {
-        writeXML("stringConstant", tokenizer.stringVal());
+    private void consumeSymbol(char symbol) throws Exception {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != symbol) {
+            throw new Exception("Expected symbol " + symbol + ", but found " + 
+                              tokenizer.tokenType() + ": " + tokenizer.symbol());
+        }
         tokenizer.advance();
     }
 
     private void consumeKeyword(String... keywords) throws Exception {
         if (tokenizer.tokenType() != TokenType.KEYWORD) {
-            throw new Exception("Expected a keyword, but found a token of type " +
-                    tokenizer.tokenType());
+            throw new Exception("Expected keyword, but found " + tokenizer.tokenType());
         }
         boolean found = false;
         for (String keyword : keywords) {
             if (tokenizer.keyword() == KeywordType.valueOf(keyword.toUpperCase())) {
                 found = true;
-                // For debugging purposes:
-                // System.out.println("keyword: " + keyword);
-                writeXML("keyword", keyword);
-                tokenizer.advance();
-                return;
+                break;
             }
         }
         if (!found) {
-            throw new Exception("Expected a keyword, but found " + tokenizer.keyword());
+            throw new Exception("Expected one of " + String.join(", ", keywords) + 
+                              ", but found " + tokenizer.keyword());
         }
+        tokenizer.advance();
+    }
+
+    private void consumeIntegerConstant() throws Exception {
+        if (tokenizer.tokenType() != TokenType.INT_CONST) {
+            throw new Exception("Expected integer constant, but found " + tokenizer.tokenType());
+        }
+        tokenizer.advance();
+    }
+
+    private void consumeStringConstant() throws Exception {
+        if (tokenizer.tokenType() != TokenType.STRING_CONST) {
+            throw new Exception("Expected string constant, but found " + tokenizer.tokenType());
+        }
+        tokenizer.advance();
     }
 
     private void compileType() throws Exception {
@@ -448,7 +599,7 @@ public class CompilationEngine {
         } else if (tokenizer.tokenType() == TokenType.IDENTIFIER) {
             consumeIdentifier();
         } else {
-            throw new Exception("Expected a type, but found " + tokenizer.tokenType());
+            throw new Exception("Expected type, but found " + tokenizer.tokenType());
         }
     }
 }

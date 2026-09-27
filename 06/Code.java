@@ -2,32 +2,22 @@ import java.util.Map;
 import java.util.HashMap;
 
 public class Code {
-    private static final Map<String, String> destMap = new HashMap<>();
     private static final Map<String, String> compMap = new HashMap<>();
     private static final Map<String, String> jumpMap = new HashMap<>();
 
     static {
-        destMap.put(null, "000");
-        destMap.put("M", "001");
-        destMap.put("D", "010");
-        destMap.put("MD", "011");
-        destMap.put("A", "100");
-        destMap.put("AM", "101");
-        destMap.put("AD", "110");
-        destMap.put("AMD", "111");
-
-        compMap.put("0", "0101010");
-        compMap.put("1", "0111111");
-        compMap.put("-1", "0111010");
-        compMap.put("D", "0001100");
-        compMap.put("A", "0110000");
-        compMap.put("M", "1110000");
-        compMap.put("!D", "0001101");
-        compMap.put("!A", "0110001");
-        compMap.put("!M", "1110001");
-        compMap.put("-D", "0001111");
-        compMap.put("-A", "0110011");
-        compMap.put("-M", "1110011");
+        compMap.put("0",   "0101010");
+        compMap.put("1",   "0111111");
+        compMap.put("-1",  "0111010");
+        compMap.put("D",   "0001100");
+        compMap.put("A",   "0110000");
+        compMap.put("M",   "1110000");
+        compMap.put("!D",  "0001101");
+        compMap.put("!A",  "0110001");
+        compMap.put("!M",  "1110001");
+        compMap.put("-D",  "0001111");
+        compMap.put("-A",  "0110011");
+        compMap.put("-M",  "1110011");
         compMap.put("D+1", "0011111");
         compMap.put("A+1", "0110111");
         compMap.put("M+1", "1110111");
@@ -45,7 +35,7 @@ public class Code {
         compMap.put("D|A", "0010101");
         compMap.put("D|M", "1010101");
 
-        jumpMap.put(null, "000");
+        jumpMap.put(null,  "000");
         jumpMap.put("JGT", "001");
         jumpMap.put("JEQ", "010");
         jumpMap.put("JGE", "011");
@@ -56,10 +46,33 @@ public class Code {
     }
 
     public static String dest(String symbol) {
-        if (!destMap.containsKey(symbol)) {
-            throw new IllegalArgumentException("Invalid dest symbol: " + symbol);
+        if (symbol == null) {
+            return "000";
         }
-        return destMap.get(symbol);
+        if (symbol.isEmpty()) {
+            throw new IllegalArgumentException("Empty dest symbol");
+        }
+
+        // Each register sets one bit (A = 100, D = 010, M = 001), so any ordering works (MD, DM, AMD, DAM...):
+        int bits = 0;
+        for (char c : symbol.toCharArray()) {
+            int bit;
+            if (c == 'A') {
+                bit = 4;
+            } else if (c == 'D') {
+                bit = 2;
+            } else if (c == 'M') {
+                bit = 1;
+            } else {
+                throw new IllegalArgumentException("Invalid dest symbol: " + symbol);
+            }
+
+            if ((bits & bit) != 0) {
+                throw new IllegalArgumentException("Repeated register in dest symbol: " + symbol);
+            }
+            bits |= bit;
+        }
+        return String.format("%3s", Integer.toBinaryString(bits)).replace(' ', '0');
     }
 
     public static String comp(String symbol) {

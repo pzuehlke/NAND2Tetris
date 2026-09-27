@@ -13,7 +13,7 @@
     //     pos=0
     // (LOOP)
     //     key = read KBD
-    //     if KBD > 0:
+    //     if key > 0:
     //     (BLACKEN)
     //         *(SCREEN + pos) = 255 (-1)
     //         pos += 1
@@ -28,7 +28,7 @@
     //             pos = maxpos
     //         goto LOOP
 
-    @8192   // Number of 16-bit words in the screen memory map
+    @8191   // index of the last word in the screen memory map
     D=A
     @maxpos
     M=D
@@ -42,7 +42,7 @@
     D;JNE
     @CLEAR
     D;JEQ
-    @LOOP
+    @END
     0;JMP
 
 (BLACKEN)
@@ -89,4 +89,8 @@
     @pos
     M=D
     @LOOP
+    0;JMP
+
+(END)
+    @END
     0;JMP

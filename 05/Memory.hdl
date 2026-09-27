@@ -25,19 +25,20 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-      Not(in=address[14], out=isRAM);
-      And(a=address[14], b=true, out=isScreenOrKbd);
-      And(a=address[14], b=address[13], out=isKbd);
-      Not(in=isKbd, out=isNotKbd);
-      And(a=isScreenOrKbd, b=isNotKbd, out=isScreen);
+        // Note that 16,384 is 2^14, and 24,576 = 2^14 + 2^13
+        Not(in=address[14], out=isRAM);
+        And(a=address[14], b=true, out=isScreenOrKbd);
+        And(a=address[14], b=address[13], out=isKbd);
+        Not(in=isKbd, out=isNotKbd);
+        And(a=isScreenOrKbd, b=isNotKbd, out=isScreen);
 
-      And(a=isRAM, b=load, out=loadRAM);
-      And(a=isScreen, b=load, out=loadScreen);
+        And(a=isRAM, b=load, out=loadRAM);
+        And(a=isScreen, b=load, out=loadScreen);
 
-      RAM16K(in=in, load=loadRAM, address=address[0..13], out=outRAM);
-      Screen(in=in, load=loadScreen, address=address[0..12], out=outScreen);
-      Keyboard(out=outKbd);
+        RAM16K(in=in, load=loadRAM, address=address[0..13], out=outRAM);
+        Screen(in=in, load=loadScreen, address=address[0..12], out=outScreen);
+        Keyboard(out=outKbd);
 
-      Mux16(a=outScreen, b=outRAM, sel=isRAM, out=outRAMOrScreen);
-      Mux16(a=outRAMOrScreen, b=outKbd, sel=isKbd, out=out);
+        Mux16(a=outScreen, b=outRAM, sel=isRAM, out=outRAMOrScreen);
+        Mux16(a=outRAMOrScreen, b=outKbd, sel=isKbd, out=out);
 }

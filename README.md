@@ -1,7 +1,7 @@
 # Nand to Tetris
 <img src="nand_to_tetris.png"> 
 
-This repository contains my solutions to the projects in the *Nand to Tetris* course (parts I and II).  The files are organized according to the projects to which they belong. No built-in code, test scripts, or auxiliary files are included, because these can already be found on the [course's website](https://www.nand2tetris.org/) and may change in the future. The only exceptions are contained in the .zip files (one per project) which are my submissions to the Coursera grader and sometimes consist not of the source code needed to solve the projects, but of the result that they produce when run on some given test files.
+This repository contains my solutions to the projects in the *Nand to Tetris* course (parts I and II).  The files are organized according to the projects to which they belong. No built-in code, test scripts, or auxiliary files are included, because these can already be found on the [course's website](https://www.nand2tetris.org/) and may change in the future. The only exceptions are contained in the .zip files (one per project) which are my submissions to the Coursera grader and in some cases consist not of the source code needed to solve the projects, but of the result that they produce when run on some given test files.
 
 ## Link to and description of each project
 
@@ -16,9 +16,9 @@ This repository contains my solutions to the projects in the *Nand to Tetris* co
 ### Part II
 * [Project7](https://github.com/pzuehlke/NAND2Tetris/tree/main/07) and [Project 8](https://github.com/pzuehlke/NAND2Tetris/tree/main/08): Implement a VM translator that converts VM code based on a stack into Hack assembly code. This was done using Java. My original solution to Project 8 passed all tests except the one for "FibonacciElement" due to a bug which took me a lot of time to find. It is easy to make a mistake in the assembly code when manipulating pointers.
 * [Project 9](https://github.com/pzuehlke/NAND2Tetris/tree/main/09): ...
-* [Project 10](https://github.com/pzuehlke/NAND2Tetris/tree/main/10): Implement a syntax analyzer for the Jack language, consisting of a tokenizer and a parser. For testing purposes it translates the source code into an XML document which model the tree-like structure of the code. This project requires a lot of grinding.
+* [Project 10](https://github.com/pzuehlke/NAND2Tetris/tree/main/10): Implement a syntax analyzer for the Jack language, consisting of a tokenizer and a parser. For testing purposes it translates the source code into an XML document which model the tree-like structure of the code. This project requires a lot of grinding. ⚠️ Page 208 instructs the inclusion of `<tokens>` and `</tokens>` tags to open and close the XML files, but this results in failed comparisons by the Coursera auto-grader.
 * [Project 11](https://github.com/pzuehlke/NAND2Tetris/tree/main/11): Implement the code generation part of the compiler, which uses the services of the syntax analyzer to translate Jack code to VM code.
-* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): Implement the OS through eight modules written in Jack, including memory management, input and output handling, and system bootstrap. The specifications for the memory module in the video lectures and in the book (2nd ed.) are inconsistent. My solution follows the description in the book.
+* [Project 12](https://github.com/pzuehlke/NAND2Tetris/tree/main/12): Implement the OS through eight modules written in Jack, including memory management, input and output handling, and system bootstrap. The specifications for the memory module in the video lectures and in the 2nd ed. of the book are inconsistent. (The positions of the blocks containing the size and the pointer to the next segment are swapped; also, the ways in which segment sizes are computed differ.) My solution follows the description in the book.
 
 
 ## Official resources
@@ -39,7 +39,8 @@ Here is a list of typos that I found while reading the book (2nd ed.), none of t
 * Page 150, 2nd paragraph of Example: `ng` should be `neg`.
 * Page 161, 4th line after Figure 8.5: "affects" should be "effects".
 * Page 174, 2nd paragraph, 3rd line: "_Application Program Interface_" should be "_Application Programming Interface_".
-* Page 213, Figure 11: In the field declarations of the `Point.jack` program, ther is a missing semicolon at the end.
+* Page 208, top: Following the instructions in the JackAnalyzer output and in the text to add the tags `<tokens>` and `</tokens>` will result in the Coursera auto-grader deeming your program incorrect; hence they should actually be omitted when submitting.
+* Page 213, Figure 11: In the field declarations of the `Point.jack` program, there is a missing semicolon at the end.
 * Page 246, 4th line: "we better" should be "we'd better".
 * Page 251, 1st and 2nd lines of Figure 12.3: missing spaces in "part of`y`" and in "integer`y`".
 * Page 261, 3rd line in the paragraph titled "`Init` functions": "fucntion" should be "function".

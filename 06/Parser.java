@@ -2,11 +2,12 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
-public class Parser {
+public class Parser implements AutoCloseable {
     private BufferedReader reader;
     private String currentLine;
+    private int lineNumber = 0;
 
-    public enum INSTRUCTION_TYPE { A_INSTRUCTION, C_INSTRUCTION, L_INSTRUCTION };
+    public enum InstructionType { A_INSTRUCTION, C_INSTRUCTION, L_INSTRUCTION }
 
     public Parser(String fileName) throws IOException {
         reader = new BufferedReader(new FileReader(fileName));
@@ -17,6 +18,10 @@ public class Parser {
         return currentLine != null;
     }
 
+    public int lineNumber() {
+        return lineNumber;  // line of the current instruction in the source file
+    }
+
     private String removeCommentsAndWhitespace(String line) {
         if (line == null) {
             return null;
@@ -24,7 +29,7 @@ public class Parser {
         line = line.replaceAll("\\s+", "");
         int commentIndex = line.indexOf("//");
         if (commentIndex != -1) {
-            return line.substring(0, commentIndex); 
+            return line.substring(0, commentIndex);
         } else {
             return line;
         }
@@ -34,32 +39,33 @@ public class Parser {
         do {
             currentLine = reader.readLine();
             if (currentLine != null) {
+                lineNumber++;
                 currentLine = removeCommentsAndWhitespace(currentLine);
             }
-        } while (currentLine != null && currentLine.isEmpty());
+        } while (currentLine != null && currentLine.isEmpty());  // try again if the line is empty
     }
 
-    public INSTRUCTION_TYPE instructionType() {
+    public InstructionType instructionType() {
         if (currentLine.startsWith("@")) {
-            return INSTRUCTION_TYPE.A_INSTRUCTION;
+            return InstructionType.A_INSTRUCTION;
         } else if (currentLine.startsWith("(")) {
-            return INSTRUCTION_TYPE.L_INSTRUCTION;
+            return InstructionType.L_INSTRUCTION;
         } else {
-            return INSTRUCTION_TYPE.C_INSTRUCTION;
+            return InstructionType.C_INSTRUCTION;
         }
     }
 
     public String symbol() {
-        if (instructionType() == INSTRUCTION_TYPE.L_INSTRUCTION) {
-            return currentLine.substring(1, currentLine.length() - 1);
-        } else if (instructionType() == INSTRUCTION_TYPE.A_INSTRUCTION) {
-            return currentLine.substring(1);
+        if (instructionType() == InstructionType.L_INSTRUCTION) {
+            return currentLine.substring(1, currentLine.length() - 1);  // part inside parentheses
+        } else if (instructionType() == InstructionType.A_INSTRUCTION) {
+            return currentLine.substring(1);  // part after `@`
         }
         return "";
     }
 
     public String dest() {
-        if (instructionType() != INSTRUCTION_TYPE.C_INSTRUCTION) {
+        if (instructionType() != InstructionType.C_INSTRUCTION) {
             throw new IllegalStateException("dest() can only be called on C-instructions!");
         }
         int equalsIndex = currentLine.indexOf("=");
@@ -67,12 +73,12 @@ public class Parser {
     }
 
     public String comp() {
-        if (instructionType() != INSTRUCTION_TYPE.C_INSTRUCTION) {
+        if (instructionType() != InstructionType.C_INSTRUCTION) {
             throw new IllegalStateException("comp() can only be called on C-instructions!");
         }
         int equalsIndex = currentLine.indexOf("=");
         int semicolonIndex = currentLine.indexOf(";");
-        
+
         if (equalsIndex != -1 && semicolonIndex != -1) {
             return currentLine.substring(equalsIndex + 1, semicolonIndex);
         } else if (equalsIndex != -1) {
@@ -85,13 +91,14 @@ public class Parser {
     }
 
     public String jump() {
-        if (instructionType() != INSTRUCTION_TYPE.C_INSTRUCTION) {
+        if (instructionType() != InstructionType.C_INSTRUCTION) {
             throw new IllegalStateException("jump() can only be called on C-instructions!");
         }
         int semicolonIndex = currentLine.indexOf(";");
         return semicolonIndex != -1 ? currentLine.substring(semicolonIndex + 1) : null;
     }
 
+    @Override
     public void close() throws IOException {
         reader.close();
     }

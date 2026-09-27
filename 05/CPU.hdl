@@ -32,46 +32,47 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-      // A-instruction or C-instruction?
-      Not(in=instruction[15], out=isA);
-      Not(in=isA, out=isC);
+        // A-instruction or C-instruction?
+        Not(in=instruction[15], out=isA);
+        Not(in=isA, out=isC);
 
-      // A register:
-      Mux16(a=outALU, b=instruction, sel=isA, out=inARegister);
-      Or(a=isA, b=instruction[5], out=loadARegister);
-      ARegister(in=inARegister, load=loadARegister,
-               out=outARegister, out[0..14]=addressM);
+        // A register:
+        Mux16(a=outALU, b=instruction, sel=isA, out=inARegister);
+        Or(a=isA, b=instruction[5], out=loadARegister);
+        ARegister(in=inARegister, load=loadARegister,
+                 out=outARegister, out[0..14]=addressM);
     
-      // D register:
-      And(a=isC, b=instruction[4], out=loadC);
-      DRegister(in=outALU, load=loadC, out=outDRegister);
+        // D register:
+        And(a=isC, b=instruction[4], out=loadC);
+        DRegister(in=outALU, load=loadC, out=outDRegister);
 
-      // ALU:
-      Mux16(a=outARegister, b=inM, sel=instruction[12], out=yALU);
-      ALU(x=outDRegister, y=yALU,
-          zx=instruction[11], nx=instruction[10],
-          zy=instruction[9], ny=instruction[8],
-          f=instruction[7], no=instruction[6],
-          out=outALU, out=outM, zr=zr, ng=ng);
+        // ALU:
+        Mux16(a=outARegister, b=inM, sel=instruction[12], out=yALU);
+        ALU(x=outDRegister, y=yALU,
+            zx=instruction[11], nx=instruction[10],
+            zy=instruction[9], ny=instruction[8],
+            f=instruction[7], no=instruction[6],
+            out=outALU, out=outM, zr=zr, ng=ng);
 
-      // Write to memory?
-      And(a=instruction[3], b=isC, out=writeM);
+        // Write to memory?
+        And(a=instruction[3], b=isC, out=writeM);
 
 
-      // Program counter:
-        // Match jump bits to the sign of the result:
-        Or(a=ng, b=zr, out=nonPos);
-        Not(in=nonPos, out=pos);
-        And(a=pos, b=instruction[0], out=matchesPositive);
-        And(a=zr, b=instruction[1], out=matchesZero);
-        And(a=ng, b=instruction[2], out=matchesNegative);
+        // Program counter:
+            // Match jump bits to the sign of the result:
+            Or(a=ng, b=zr, out=nonPos);
+            Not(in=nonPos, out=pos);
+            And(a=pos, b=instruction[0], out=matchesPositive);
+            And(a=zr, b=instruction[1], out=matchesZero);
+            And(a=ng, b=instruction[2], out=matchesNegative);
 
-        // Jump if any jump condition is met:
-        Or(a=matchesPositive, b=matchesZero, out=matchesNonNegative);   
-        Or(a=matchesNonNegative, b=matchesNegative, out=matchesSign);
-        And(a=isC, b=matchesSign, out=jump);
-        Not(in=jump, out=noJump);
+            // Jump if any jump condition is met:
+            Or(a=matchesPositive, b=matchesZero, out=matchesNonNegative);   
+            Or(a=matchesNonNegative, b=matchesNegative, out=matchesSign);
+            And(a=isC, b=matchesSign, out=jump);
+            Not(in=jump, out=noJump);
 
-        // Assemble PC:
-        PC(in=outARegister, load=jump, inc=noJump, reset=reset, out[0..14]=pc);
+            // Assemble PC:
+            PC(in=outARegister, load=jump, inc=noJump,
+               reset=reset, out[0..14]=pc);
 }

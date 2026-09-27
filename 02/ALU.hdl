@@ -63,7 +63,8 @@ CHIP ALU {
         out[8..15]=w2,  // most significant bits of the output
         out[15]=ng);    // leading sign bit
 
-        // Implementing the `zr` part:
+        // Implementing the `zr` part. Since there's no Or16Way, we apply two
+        // 8-way Or on the most/least significant bits, then Or the results:
         Or8Way(in=w1, out=lsb);
         Or8Way(in=w2, out=msb);
         Or(a=lsb, b=msb, out=nzr);

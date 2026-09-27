@@ -1,10 +1,26 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
 
 public class Parser {
     private BufferedReader reader;
-    private String currentLine;
+    private String[] tokens;
+
+    private static HashMap<String, String> typeMap = new HashMap<>();
+    static {
+        typeMap.put("push",     "C_PUSH");
+        typeMap.put("pop",      "C_POP");
+        typeMap.put("label",    "C_LABEL");
+        typeMap.put("goto",     "C_GOTO");
+        typeMap.put("if-goto",  "C_IF");
+        typeMap.put("function", "C_FUNCTION");
+        typeMap.put("return",   "C_RETURN");
+        typeMap.put("call",     "C_CALL");
+        for (String op : new String[] {"add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"}) {
+            typeMap.put(op, "C_ARITHMETIC");
+        }
+    }
 
     public Parser(String filePath) throws IOException {
         reader = new BufferedReader(new FileReader(filePath));
@@ -12,86 +28,51 @@ public class Parser {
     }
 
     public boolean hasMoreLines() {
-        return currentLine != null;
+        return tokens != null;
     }
 
     public void advance() throws IOException {
-        do {
-            currentLine = reader.readLine();
-        } while (currentLine != null &&
-                 (currentLine.isEmpty() ||
-                  currentLine.startsWith("//")));
-        if (currentLine != null) {
-            int slashIndex = currentLine.indexOf("/");
-            if (slashIndex != -1) {
-                currentLine = currentLine.substring(0, slashIndex);
+        String line;
+        while ((line = reader.readLine()) != null) {
+            // Strip comments and whitespace, then skip the line if nothing is left:
+            int commentIndex = line.indexOf("//");
+            if (commentIndex != -1) {
+                line = line.substring(0, commentIndex);
             }
-            currentLine = currentLine.trim();
-            System.out.println(currentLine);
+            line = line.trim();
+            if (!line.isEmpty()) {
+                tokens = line.split("\\s+");
+                return;
+            } // else, the line is empty, go for another iteration
         }
+        tokens = null;  // end of file
     }
 
-    public String commandType() throws IOException {
-        if (currentLine == null) {
-            return "C_UNKNOWN";
-        }
-
-        else if (currentLine.startsWith("//")) {
-            return "C_COMMENT"; }
-        else if (currentLine.startsWith("push")) {
-            return "C_PUSH"; }
-        else if (currentLine.startsWith("pop")) {
-            return "C_POP"; }
-        else if (currentLine.startsWith("label")) {
-            return "C_LABEL"; }
-        else if (currentLine.startsWith("goto")) {
-            return "C_GOTO"; }
-        else if (currentLine.startsWith("if-goto")) {
-            return "C_IF"; }
-        else if (currentLine.startsWith("function")) {
-            return "C_FUNCTION"; }
-        else if (currentLine.startsWith("return")) {
-            return "C_RETURN"; }
-        else if (currentLine.startsWith("call")) {
-            return "C_CALL"; }
-        else if (currentLine.startsWith("add") || 
-                 currentLine.startsWith("sub") ||
-                 currentLine.startsWith("neg") ||
-                 currentLine.startsWith("and") ||
-                 currentLine.startsWith("not") ||
-                 currentLine.startsWith("or")  ||
-                 currentLine.startsWith("eq")  ||
-                 currentLine.startsWith("gt")  ||
-                 currentLine.startsWith("lt")) {
-            return "C_ARITHMETIC"; }
-        else {
-            return "C_UNKNOWN"; }
+    public String commandType() {
+        return typeMap.getOrDefault(tokens[0], "C_UNKNOWN");
     }
 
-    public String command() {
-        String[] tokens = currentLine.split(" ");
+    public String command() {   // not in the API
         return tokens[0];
     }
 
-    public String arg1() throws IOException {
-        String[] tokens = currentLine.split(" ");
-
+    public String arg1() {
         if (commandType().equals("C_ARITHMETIC")) {
-            return tokens[0];
+            return tokens[0];   // arithmetic commands have no arguments
+        } else {
+            return tokens[1];
         }
-        else { return tokens[1]; }
     }
 
-    public int arg2() throws IOException {
-        String[] tokens = currentLine.split(" ");
+    public int arg2() {
         String type = commandType();
-
         if (type.equals("C_PUSH")     || type.equals("C_POP")   ||
             type.equals("C_FUNCTION") || type.equals("C_CALL")) {
-            return Integer.parseInt(tokens[2]); }
-        else {
-            throw new IllegalArgumentException("arg2 not valid for this command"
-                + "type: " + type); }
+            return Integer.parseInt(tokens[2]);
+        } else {
+            throw new IllegalArgumentException("arg2 not valid for this command "
+                + "type: " + type);
+        }
     }
 
     public void close() throws IOException {
